@@ -1,11 +1,251 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8">
+  <title>NBA Memory Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    #scoreDisplay {
+      font-size: 20px;
+      margin-top: 10px;
+    }
+    .game-board {
+      display: grid;
+      grid-template-columns: repeat(4, 150px);
+      grid-gap: 15px;
+      justify-content: center;
+      margin-top: 30px;
+    }
+    .card {
+      width: 150px;
+      height: 150px;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+    .card.flip .card-inner {
+      transform: rotateY(180deg);
+    }
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    }
+    .card-front {
+      transform: rotateY(180deg);
+    }
+    .card-back {
+      background-color: #1e90ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 48px;
+    }
+    /* End screen overlay */
+    #endScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #endScreen h2 {
+      margin-bottom: 20px;
+      font-size: 36px;
+    }
+    #endScreen p {
+      font-size: 24px;
+      margin-bottom: 30px;
+    }
+    #restartButton {
+      padding: 10px 20px;
+      font-size: 20px;
+      border: none;
+      border-radius: 5px;
+      background-color: #1e90ff;
+      color: #fff;
+      cursor: pointer;
+    }
+    #restartButton:hover {
+      background-color: #007acc;
+    }
+  </style>
 </head>
 <body>
+  <h1>NBA Memory Game</h1>
+  <div id="scoreDisplay">Score: 0</div>
+  <div class="game-board" id="gameBoard"></div>
+  <!-- End Screen Overlay -->
+  <div id="endScreen">
+    <h2>Congratulations!</h2>
+    <p id="finalScore">You got 0 points!</p>
+    <button id="restartButton" onclick="restartGame()">Play Again</button>
+  </div>
+  <script>
+    // Array of NBA players with image URLs
+    const players = [
+      { name: "LeBron James", image: "https://encrypted-tbn1.gstatic.com/licensed-image?q=tbn:ANd9GcQKCQobY2JfgA3EtDcAbUlzCtAd4pEpY4BlOVBAO2BTHwhE26ZLde_wFabe8I60zyv9_Y3xoTuI3buF0mQ" },
+      { name: "Stephen Curry", image: "https://a.espncdn.com/i/headshots/nba/players/full/3975.png" },
+      { name: "Kevin Durant", image: "https://a.espncdn.com/i/headshots/nba/players/full/3202.png" },
+      { name: "Giannis Antetokounmpo", image: "https://cdn.nba.com/headshots/nba/latest/1040x760/203507.png" },
+      { name: "James Harden", image: "https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3992.png" },
+      { name: "Kawhi Leonard", image: "https://cdn.nba.com/headshots/nba/latest/1040x760/202695.png" }
+    ];
     
+    // Duplicate each player to create pairs
+    let cardArray = [];
+    players.forEach(player => {
+      cardArray.push({ name: player.name, image: player.image });
+      cardArray.push({ name: player.name, image: player.image });
+    });
+    
+    // Shuffle function using Fisher-Yates algorithm
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+    cardArray = shuffle(cardArray);
+    
+    const gameBoard = document.getElementById("gameBoard");
+    let firstCard = null;
+    let secondCard = null;
+    let lockBoard = false;
+    let score = 0;
+    
+    // Create a card element
+    function createCard(cardData) {
+      const cardElement = document.createElement("div");
+      cardElement.classList.add("card");
+      cardElement.dataset.name = cardData.name;
+      
+      const cardInner = document.createElement("div");
+      cardInner.classList.add("card-inner");
+      
+      // Front face: shows NBA player image
+      const cardFront = document.createElement("div");
+      cardFront.classList.add("card-face", "card-front");
+      const img = document.createElement("img");
+      img.src = cardData.image;
+      img.alt = cardData.name;
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.borderRadius = "8px";
+      cardFront.appendChild(img);
+      
+      // Back face: generic design with a question mark
+      const cardBack = document.createElement("div");
+      cardBack.classList.add("card-face", "card-back");
+      cardBack.textContent = "?";
+      
+      cardInner.appendChild(cardFront);
+      cardInner.appendChild(cardBack);
+      cardElement.appendChild(cardInner);
+      
+      // Event listener to handle card flipping
+      cardElement.addEventListener("click", function() {
+        if (lockBoard) return;
+        if (cardElement === firstCard) return;
+        
+        cardElement.classList.add("flip");
+        
+        if (!firstCard) {
+          firstCard = cardElement;
+          return;
+        }
+        
+        secondCard = cardElement;
+        checkForMatch();
+      });
+      
+      return cardElement;
+    }
+    
+    // Initialize the game board by creating cards
+    cardArray.forEach(cardData => {
+      const cardElement = createCard(cardData);
+      gameBoard.appendChild(cardElement);
+    });
+    
+    // Check if two flipped cards match
+    function checkForMatch() {
+      let isMatch = firstCard.dataset.name === secondCard.dataset.name;
+      isMatch ? disableCards() : unflipCards();
+    }
+    
+    // If cards match, disable them so they can no longer be clicked
+    function disableCards() {
+      firstCard.style.pointerEvents = 'none';
+      secondCard.style.pointerEvents = 'none';
+      score++;
+      document.getElementById("scoreDisplay").innerText = "Score: " + score;
+      setTimeout(() => {
+        firstCard.style.visibility = "hidden";
+        secondCard.style.visibility = "hidden";
+        resetBoard();
+        checkGameOver(); // Added call to check if game is over
+      }, 500);
+    }
+    
+    // If cards do not match, flip them back after a short delay
+    function unflipCards() {
+      lockBoard = true;
+      setTimeout(() => {
+        firstCard.classList.remove("flip");
+        secondCard.classList.remove("flip");
+        resetBoard();
+      }, 1000);
+    }
+    
+    // Reset board state after each pair is checked
+    function resetBoard() {
+      [firstCard, secondCard] = [null, null];
+      lockBoard = false;
+    }
+    
+    // Check if the game is over (all pairs matched)
+    function checkGameOver() {
+      // Total pairs equals half the number of cards
+      if (score === cardArray.length / 2) {
+        // Show end screen overlay with final score
+        const endScreen = document.getElementById("endScreen");
+        endScreen.style.display = "flex";
+        document.getElementById("finalScore").innerText = "You got " + score + " points!";
+      }
+    }
+    
+    // Restart the game by reloading the page
+    function restartGame() {
+      location.reload();
+    }
+  </script>
 </body>
 </html>
