@@ -14,9 +14,12 @@
     h1 {
       color: #333;
     }
-    #scoreDisplay {
+    #scoreDisplay, #timerDisplay {
       font-size: 20px;
       margin-top: 10px;
+    }
+    #timerDisplay {
+      margin-bottom: 10px;
     }
     .game-board {
       display: grid;
@@ -30,6 +33,7 @@
       height: 150px;
       perspective: 1000px;
       cursor: pointer;
+      opacity: 1;
     }
     .card-inner {
       position: relative;
@@ -60,7 +64,12 @@
       color: #fff;
       font-size: 48px;
     }
-    /* End screen overlay */
+    /* Fade-out animation for matched cards */
+    .card.fade-out {
+      opacity: 0;
+      transition: opacity 0.5s ease-out;
+    }
+    /* End screen overlay with fade-in animation */
     #endScreen {
       position: fixed;
       top: 0;
@@ -74,6 +83,11 @@
       justify-content: center;
       align-items: center;
       z-index: 1000;
+      animation: fadeIn 0.5s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
     #endScreen h2 {
       margin-bottom: 20px;
@@ -100,21 +114,34 @@
 <body>
   <h1>NBA Memory Game</h1>
   <div id="scoreDisplay">Score: 0</div>
+  <div id="timerDisplay">Timer: 0s</div>
   <div class="game-board" id="gameBoard"></div>
+  
   <!-- End Screen Overlay -->
   <div id="endScreen">
     <h2>Congratulations!</h2>
-    <p id="finalScore">You got 0 points!</p>
+    <p id="finalScore">You got 0 points in 0 seconds!</p>
     <button id="restartButton" onclick="restartGame()">Play Again</button>
   </div>
+  
   <script>
+    // Timer variables
+    let startTime = Date.now();
+    let timerInterval = setInterval(updateTimer, 1000);
+    
+    function updateTimer() {
+      const currentTime = Date.now();
+      const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+      document.getElementById("timerDisplay").innerText = "Timer: " + elapsedTime + "s";
+    }
+    
     // Array of NBA players with image URLs
     const players = [
       { name: "LeBron James", image: "https://encrypted-tbn1.gstatic.com/licensed-image?q=tbn:ANd9GcQKCQobY2JfgA3EtDcAbUlzCtAd4pEpY4BlOVBAO2BTHwhE26ZLde_wFabe8I60zyv9_Y3xoTuI3buF0mQ" },
-      { name: "Stephen Curry", image: "https://a.espncdn.com/i/headshots/nba/players/full/3975.png" },
-      { name: "Kevin Durant", image: "https://a.espncdn.com/i/headshots/nba/players/full/3202.png" },
+      { name: "Stephen Curry", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRV6V5RVCcY2xEA29oDUJtIkKcAZaHT3e3UQd_rLs6i5k7_hOvupjM11R1O4jH6FGQwUy5brw" },
+      { name: "Kevin Durant", image: "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcR-vLnL2rqH3VraUhYrqI0zZ9AeTKdnlXjhpKSAQzOBH8Y_lmrXf3WYSQfaTYXuVTOzPp2PYw" },
       { name: "Giannis Antetokounmpo", image: "https://cdn.nba.com/headshots/nba/latest/1040x760/203507.png" },
-      { name: "James Harden", image: "https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3992.png" },
+      { name: "James Harden", image: "https://cdn.nba.com/headshots/nba/latest/1040x760/201935.png" },
       { name: "Kawhi Leonard", image: "https://cdn.nba.com/headshots/nba/latest/1040x760/202695.png" }
     ];
     
@@ -201,17 +228,19 @@
       isMatch ? disableCards() : unflipCards();
     }
     
-    // If cards match, disable them so they can no longer be clicked
+    // If cards match, disable them and add a fade-out animation
     function disableCards() {
       firstCard.style.pointerEvents = 'none';
       secondCard.style.pointerEvents = 'none';
       score++;
       document.getElementById("scoreDisplay").innerText = "Score: " + score;
+      firstCard.classList.add("fade-out");
+      secondCard.classList.add("fade-out");
       setTimeout(() => {
         firstCard.style.visibility = "hidden";
         secondCard.style.visibility = "hidden";
         resetBoard();
-        checkGameOver(); // Added call to check if game is over
+        checkGameOver(); // Check if all pairs are matched
       }, 500);
     }
     
@@ -233,12 +262,12 @@
     
     // Check if the game is over (all pairs matched)
     function checkGameOver() {
-      // Total pairs equals half the number of cards
       if (score === cardArray.length / 2) {
-        // Show end screen overlay with final score
+        clearInterval(timerInterval); // Stop the timer
+        const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
         const endScreen = document.getElementById("endScreen");
         endScreen.style.display = "flex";
-        document.getElementById("finalScore").innerText = "You got " + score + " points!";
+        document.getElementById("finalScore").innerText = "You got " + score + " points in " + elapsedTime + " seconds!";
       }
     }
     
