@@ -9,6 +9,11 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
     body {
       font-family: Arial, sans-serif;
       background: linear-gradient(135deg, #1e3c72, #2a5298, #a8c0ff);
@@ -24,13 +29,16 @@
     h1 {
       color: #fff;
     }
-    #scoreDisplay, #timerDisplay {
-      font-size: 20px;
-      margin-top: 10px;
+    /* Enhanced timer styling for a basketball theme */
+    #scoreDisplay, #timerDisplay, #pairingTimerDisplay {
+      font-size: 24px;
+      font-weight: bold;
       color: #fff;
-    }
-    #timerDisplay {
-      margin-bottom: 10px;
+      background-color: #ff4500;  /* Basketball orange */
+      padding: 10px;
+      border-radius: 8px;
+      display: inline-block;
+      margin: 10px;
     }
     .game-board {
       display: grid;
@@ -126,17 +134,19 @@
   <h1>NBA Memory Game</h1>
   <div id="scoreDisplay">Score: 0</div>
   <div id="timerDisplay">Timer: 0s</div>
+  <!-- New Shot Clock Timer (24 seconds) -->
+  <div id="pairingTimerDisplay">Shot Clock: 24s</div>
   <div class="game-board" id="gameBoard"></div>
   
   <!-- End Screen Overlay -->
   <div id="endScreen">
-    <h2>Congratulations!</h2>
+    <h2 id="endTitle">Congratulations!</h2>
     <p id="finalScore">You got 0 points in 0 seconds!</p>
     <button id="restartButton" onclick="restartGame()">Play Again</button>
   </div>
   
   <script>
-    // Timer variables
+    // GLOBAL GAME TIMER
     let startTime = Date.now();
     let timerInterval = setInterval(updateTimer, 1000);
     
@@ -144,6 +154,55 @@
       const currentTime = Date.now();
       const elapsedTime = Math.floor((currentTime - startTime) / 1000);
       document.getElementById("timerDisplay").innerText = "Timer: " + elapsedTime + "s";
+    }
+    
+    // SHOT CLOCK TIMER (24-second limit)
+    let pairingTime = 24;
+    let pairingTimerInterval;
+    let shotClockRunning = false; // Tracks if shot clock is already running
+    
+    function startPairingTimer() {
+      pairingTime = 24;
+      updatePairingTimerDisplay();
+      clearInterval(pairingTimerInterval);
+      pairingTimerInterval = setInterval(() => {
+        pairingTime--;
+        updatePairingTimerDisplay();
+        if (pairingTime <= 0) {
+          clearInterval(pairingTimerInterval);
+          gameOverShotClock();
+        }
+      }, 1000);
+    }
+    
+    function updatePairingTimerDisplay() {
+      document.getElementById("pairingTimerDisplay").innerText = "Shot Clock: " + pairingTime + "s";
+    }
+    
+    // Reset the shot clock only on successful pairing.
+    function resetPairingTimer() {
+      clearInterval(pairingTimerInterval);
+      // Restart shot clock for next pairing attempt
+      pairingTime = 24;
+      updatePairingTimerDisplay();
+      pairingTimerInterval = setInterval(() => {
+        pairingTime--;
+        updatePairingTimerDisplay();
+        if (pairingTime <= 0) {
+          clearInterval(pairingTimerInterval);
+          gameOverShotClock();
+        }
+      }, 1000);
+    }
+    
+    // Ends the game due to shot clock violation.
+    function gameOverShotClock() {
+      clearInterval(timerInterval); // Stop overall timer
+      const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+      const endScreen = document.getElementById("endScreen");
+      endScreen.style.display = "flex";
+      document.getElementById("endTitle").innerText = "Game Over!";
+      document.getElementById("finalScore").innerText = "You ran out of shot clock! You got " + score + " points in " + elapsedTime + " seconds!";
     }
     
     // Array of NBA players with image URLs
@@ -217,6 +276,11 @@
         
         if (!firstCard) {
           firstCard = cardElement;
+          // Start the shot clock timer if it's not already running
+          if (!shotClockRunning) {
+            shotClockRunning = true;
+            startPairingTimer();
+          }
           return;
         }
         
@@ -251,6 +315,8 @@
         firstCard.style.visibility = "hidden";
         secondCard.style.visibility = "hidden";
         resetBoard();
+        // Reset the shot clock only on a successful pairing
+        resetPairingTimer();
         checkGameOver(); // Check if all pairs are matched
       }, 500);
     }
@@ -262,10 +328,11 @@
         firstCard.classList.remove("flip");
         secondCard.classList.remove("flip");
         resetBoard();
+        // Do not reset the shot clock here so that it continues counting down
       }, 1000);
     }
     
-    // Reset board state after each pair is checked
+    // Reset board state after each pairing attempt
     function resetBoard() {
       [firstCard, secondCard] = [null, null];
       lockBoard = false;
@@ -274,7 +341,8 @@
     // Check if the game is over (all pairs matched)
     function checkGameOver() {
       if (score === cardArray.length / 2) {
-        clearInterval(timerInterval); // Stop the timer
+        clearInterval(timerInterval);        // Stop the overall timer
+        clearInterval(pairingTimerInterval);   // Stop the shot clock timer
         const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
         const endScreen = document.getElementById("endScreen");
         endScreen.style.display = "flex";
